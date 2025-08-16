@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Juventude na História do Espiritismo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Calm Harmony Neutrals -->
+    <!-- Application Structure Plan: The SPA is designed with three main interactive sections to facilitate exploration. First, a filterable vertical timeline allows users to navigate chronologically through different historical eras, making the dense information digestible. Second, a character gallery with clickable modals lets users explore detailed biographies without cluttering the main view. This separates summary from detail, a key usability principle. Finally, a data visualization (bar chart) provides a quick, quantitative summary of the central theme—the youth of these key figures. This multi-faceted approach (chronological, biographical, and quantitative) provides a richer, more engaging user experience than a linear text document. -->
+    <!-- Visualization & Content Choices: 1. Timeline (HTML/CSS/JS): Goal=Change/Sequence. Presents events chronologically. Interaction=Filtering by era via buttons. Justification=Most intuitive way to show historical flow; filtering reduces cognitive load. 2. Character Modals (HTML/CSS/JS): Goal=Organize/Inform. Presents detailed biographies. Interaction=Clicking a character card to open a modal. Justification=Keeps the main interface clean while providing deep-dive information on demand. 3. Age Chart (Chart.js/Canvas): Goal=Compare. Compares the starting ages of key figures. Interaction=Hover tooltips. Justification=A bar chart provides an immediate, powerful visual comparison that reinforces the report's main theme. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FDFBF8;
+            color: #3D405B;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: -8px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: #81B29A;
+            border: 3px solid #FDFBF8;
+            z-index: 10;
+        }
+        .modal {
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-content {
+            transition: transform 0.3s ease;
+        }
+        .active-filter {
+            background-color: #81B29A;
+            color: white;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 400px;
+            max-height: 50vh;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <header class="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-40">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-2xl md:text-3xl font-bold text-[#3D405B]">A Juventude no Espiritismo</h1>
+            <nav>
+                <a href="#timeline" class="text-gray-600 hover:text-[#81B29A] px-3 py-2 rounded-md text-sm font-medium">Linha do Tempo</a>
+                <a href="#personagens" class="text-gray-600 hover:text-[#81B29A] px-3 py-2 rounded-md text-sm font-medium">Personagens</a>
+                <a href="#grafico" class="text-gray-600 hover:text-[#81B29A] px-3 py-2 rounded-md text-sm font-medium">Gráfico</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8 md:py-12">
+
+        <section id="intro" class="text-center mb-16">
+            <h2 class="text-3xl md:text-4xl font-bold mb-4">Uma Jornada Histórica</h2>
+            <p class="max-w-3xl mx-auto text-lg text-gray-700">
+                Esta aplicação interativa explora a profunda conexão entre a juventude e os momentos cruciais do desenvolvimento do pensamento cristão e da Doutrina Espírita. Navegue pela linha do tempo, conheça as figuras-chave e veja como a energia jovem foi fundamental em diversas épocas.
+            </p>
+        </section>
+
+        <section id="timeline" class="mb-16">
+            <h2 class="text-3xl font-bold text-center mb-8">Linha do Tempo Interativa</h2>
+            <div id="timeline-filters" class="flex flex-wrap justify-center gap-2 mb-8">
+                <button data-filter="all" class="filter-btn px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-300 active-filter">Todos</button>
+                <button data-filter="antiguidade" class="filter-btn px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-300 bg-gray-200 hover:bg-gray-300">Antiguidade</button>
+                <button data-filter="cristianismo" class="filter-btn px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-300 bg-gray-200 hover:bg-gray-300">Início do Cristianismo</button>
+                <button data-filter="media" class="filter-btn px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-300 bg-gray-200 hover:bg-gray-300">Idade Média/Renascença</button>
+                <button data-filter="seculo-xix" class="filter-btn px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-300 bg-gray-200 hover:bg-gray-300">Século XIX</button>
+                <button data-filter="seculo-xx" class="filter-btn px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-300 bg-gray-200 hover:bg-gray-300">Século XX</button>
+            </div>
+
+            <div class="relative border-l-4 border-gray-200 ml-4 md:ml-0">
+            </div>
+        </section>
+        
+        <section id="personagens" class="mb-16">
+            <h2 class="text-3xl font-bold text-center mb-2">Personagens-Chave</h2>
+            <p class="text-center text-gray-700 mb-8 max-w-2xl mx-auto">Clique em uma personalidade para descobrir mais sobre sua história e contribuição.</p>
+            <div id="personagens-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            </div>
+        </section>
+
+        <section id="grafico">
+            <h2 class="text-3xl font-bold text-center mb-2">Idade de Início da Missão</h2>
+            <p class="text-center text-gray-700 mb-8 max-w-2xl mx-auto">Este gráfico compara a idade em que diversas figuras notáveis iniciaram suas jornadas espirituais, destacando o protagonismo jovem.</p>
+            <div class="chart-container bg-white p-4 rounded-lg shadow-md">
+                <canvas id="ageChart"></canvas>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-white mt-16 border-t">
+        <div class="container mx-auto px-4 py-6 text-center text-gray-600">
+            <p>&copy; 2024 Exploração Histórica Interativa. Todos os dados baseados no relatório fornecido.</p>
+        </div>
+    </footer>
+
+    <div id="modal" class="modal invisible opacity-0 fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="modal-content transform -translate-y-10 bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-start">
+                    <h3 id="modal-title" class="text-2xl font-bold mb-4"></h3>
+                    <button id="modal-close" class="text-gray-500 hover:text-gray-800 text-3xl">&times;</button>
+                </div>
+                <p id="modal-body" class="text-gray-700 whitespace-pre-wrap"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const timelineData = [
+                { year: "~470-399 a.C.", event: "Sócrates, precursor do pensamento cristão, é acusado de corromper a juventude.", category: "antiguidade" },
+                { year: "~428-347 a.C.", event: "Platão, discípulo de Sócrates, registra os ensinamentos de seu mestre.", category: "antiguidade" },
+                { year: "~33 d.C.", event: "Jesus é crucificado. A maioria de seus Apóstolos era jovem, com João Evangelista tendo cerca de 20 anos.", category: "cristianismo" },
+                { year: "Meados do Século I", event: "Paulo de Tarso orienta jovens como Timóteo (13 anos), Tito (menos de 20), João Marcos e Lucas.", category: "cristianismo" },
+                { year: "~1209", event: "Francisco de Assis, aos 20 anos, inicia sua jornada espiritual.", category: "media" },
+                { year: "~1221", event: "Antônio de Pádua, com 16 anos, dedica-se à 'Ciência celeste'.", category: "media" },
+                { year: "~1429", event: "Joana d'Arc, médium de 18 anos, surge como figura central na história da França.", category: "media" },
+                { year: "~1620", event: "Vicente de Paulo inicia seu apostolado aos 24 anos.", category: "media" },
+                { year: "1826", event: "Nasce Andrew Jackson Davis, futuro precursor do movimento jovem espírita.", category: "seculo-xix" },
+                { year: "1854", event: "Ermance Dufaux, médium de 12 anos, recebe mensagens espirituais.", category: "seculo-xix" },
+                { year: "1860", event: "Jovens médiuns colaboram com Kardec: Ermance Dufaux (19), Julie Baudin (16), Caroline Baudin (18) e Ruth Japhet (20).", category: "seculo-xix" },
+                { year: "1861", event: "Obras de Kardec e Ermance Dufaux são queimadas no auto de fé em Barcelona.", category: "seculo-xix" },
+                { year: "1863", event: "Andrew Jackson Davis funda em Nova York a 'primeira mocidade espírita no mundo'.", category: "seculo-xix" },
+                { year: "1910", event: "Nasce Chico Xavier em Pedro Leopoldo, MG.", category: "seculo-xx" },
+                { year: "1922", event: "É fundada a 'I União da Juventude Espírita de Santana' em São Paulo, a primeira do Brasil.", category: "seculo-xx" },
+                { year: "1927", event: "Chico Xavier, aos 17 anos, adere ao Espiritismo e inicia seu mandato mediúnico.", category: "seculo-xx" },
+                { year: "1936", event: "Movimentos de juventude espírita são organizados em Porto Rico e na Espanha.", category: "seculo-xx" },
+                { year: "1948", event: "Ocorre o 'I Congresso de Mocidades Espíritas do Brasil'.", category: "seculo-xx" },
+                { year: "1957", event: "É realizada a primeira CONCAFRAS, organizada principalmente por jovens.", category: "seculo-xx" }
+            ];
+
+            const personagensData = {
+                "Sócrates": "Filósofo grego, precursor do pensamento cristão. Acusado de corromper a juventude, defendeu a unidade de Deus e a imortalidade da alma.",
+                "Platão": "Discípulo de Sócrates, registrou seus ensinamentos. Allan Kardec teve a revelação de ter sido Platão em vida anterior.",
+                "Jesus de Nazaré": "Fundador do Cristianismo. Escolheu Apóstolos majoritariamente jovens e é a maior inspiração para a evangelização.",
+                "João Evangelista": "O mais jovem dos Apóstolos, com cerca de 20 anos na ocasião do Calvário.",
+                "Paulo de Tarso": "O apóstolo dos gentios, confiou na capacidade dos jovens, orientando figuras como Timóteo, Tito, João Marcos e Lucas.",
+                "Timóteo": "Filho espiritual de Paulo, encontrado aos 13 anos. Tornou-se um de seus principais cooperadores e possuía faculdades mediúnicas.",
+                "Francisco de Assis": "Chamado 'O Cristo da Idade Média', projetou-se no mundo como exemplo de virtude aos 20 anos.",
+                "Antônio de Pádua": "Aos 16 anos, deixou a casa materna para iniciar-se na 'Ciência celeste', tornando-se um poderoso médium.",
+                "Joana d'Arc": "Projetou-se no mundo aos 18 anos como uma médium passiva por excelência.",
+                "Vicente de Paulo": "Iniciou seu apostolado aos 24 anos de idade.",
+                "Allan Kardec": "Codificador da Doutrina Espírita. Contou com o auxílio de jovens médiuns na elaboração de O Livro dos Espíritos.",
+                "Ermance Dufaux": "Jovem médium que colaborou com Kardec aos 19 anos. Começou a psicografar aos 12.",
+                "Andrew Jackson Davis": "Médium americano que fundou o primeiro movimento de mocidades espíritas nos EUA em 1863.",
+                "Chico Xavier": "Iniciou sua jornada espírita aos 17 anos (1927). Teve um extenso mandato mediúnico, psicografando centenas de livros.",
+                "Leopoldo Machado": "Grande entusiasta e realizador do movimento de mocidades espíritas no Brasil.",
+                "Emmanuel": "Guia espiritual de Chico Xavier, com quem teve um reencontro significativo em 1927, marcando o início de sua missão."
+            };
+
+            const timelineContainer = document.querySelector('#timeline .relative');
+            const personagensGrid = document.getElementById('personagens-grid');
+            const modal = document.getElementById('modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalBody = document.getElementById('modal-body');
+            const modalClose = document.getElementById('modal-close');
+
+            function renderTimeline(filter = 'all') {
+                timelineContainer.innerHTML = '';
+                const filteredData = filter === 'all' ? timelineData : timelineData.filter(item => item.category === filter);
+
+                filteredData.forEach((item, index) => {
+                    const sideClass = index % 2 === 0 ? 'md:ml-auto md:mr-8' : 'md:mr-auto md:ml-8';
+                    const itemHTML = `
+                        <div data-category="${item.category}" class="timeline-item mb-8 pl-8 md:pl-0 relative w-full md:w-5/12 ${sideClass}">
+                            <div class="bg-white p-4 rounded-lg shadow-md border-l-4 border-[#E07A5F]">
+                                <p class="text-sm font-semibold text-[#81B29A]">${item.year}</p>
+                                <p class="mt-1 text-gray-800">${item.event}</p>
+                            </div>
+                        </div>
+                    `;
+                    timelineContainer.insertAdjacentHTML('beforeend', itemHTML);
+                });
+            }
+
+            function renderPersonagens() {
+                Object.keys(personagensData).forEach(nome => {
+                    const cardHTML = `
+                        <div data-nome="${nome}" class="personagem-card bg-white p-3 rounded-lg shadow-md text-center cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                            <p class="font-semibold text-sm">${nome}</p>
+                        </div>
+                    `;
+                    personagensGrid.insertAdjacentHTML('beforeend', cardHTML);
+                });
+            }
+
+            document.querySelectorAll('.filter-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    document.querySelector('.active-filter').classList.remove('active-filter', 'bg-gray-200', 'hover:bg-gray-300');
+                    document.querySelector('.active-filter')?.classList.add('bg-gray-200', 'hover:bg-gray-300');
+                    button.classList.add('active-filter');
+                    button.classList.remove('bg-gray-200', 'hover:bg-gray-300');
+                    renderTimeline(button.dataset.filter);
+                });
+            });
+
+            personagensGrid.addEventListener('click', (e) => {
+                const card = e.target.closest('.personagem-card');
+                if (card) {
+                    const nome = card.dataset.nome;
+                    modalTitle.textContent = nome;
+                    modalBody.textContent = personagensData[nome];
+                    modal.classList.remove('invisible', 'opacity-0');
+                    modal.querySelector('.modal-content').classList.remove('-translate-y-10');
+                }
+            });
+
+            function closeModal() {
+                modal.querySelector('.modal-content').classList.add('-translate-y-10');
+                modal.classList.add('opacity-0');
+                setTimeout(() => modal.classList.add('invisible'), 300);
+            }
+
+            modalClose.addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    closeModal();
+                }
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeModal();
+                }
+            });
+            
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    document.querySelector(this.getAttribute('href')).scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                });
+            });
+
+            const ageData = {
+                labels: ['Timóteo', 'Antônio de Pádua', 'Chico Xavier', 'Joana d\'Arc', 'Ermance Dufaux', 'Francisco de Assis', 'João Evangelista', 'Vicente de Paulo'],
+                ages: [13, 16, 17, 18, 19, 20, 20, 24]
+            };
+
+            const ctx = document.getElementById('ageChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ageData.labels,
+                    datasets: [{
+                        label: 'Idade de Início da Missão',
+                        data: ageData.ages,
+                        backgroundColor: '#81B29A',
+                        borderColor: '#6A9983',
+                        borderWidth: 1,
+                        borderRadius: 5,
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.label}: ${context.raw} anos`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Idade (Anos)'
+                            }
+                        }
+                    }
+                }
+            });
+
+            renderTimeline();
+            renderPersonagens();
+        });
+    </script>
+</body>
+</html>

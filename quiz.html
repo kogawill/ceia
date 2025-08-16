@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Interativo: Juventude de Todos os Tempos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .card {
+            perspective: 1000px;
+        }
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .card.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            text-align: center;
+        }
+        .card-back {
+            transform: rotateY(180deg);
+        }
+        #modal, #image-feedback-overlay {
+            transition: opacity 0.3s ease-in-out;
+        }
+        #modal-content {
+            transition: transform 0.3s ease-in-out;
+        }
+        .feedback-icon {
+            width: 2rem;
+            height: 2rem;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-4xl text-center">
+        <h1 class="text-3xl md:text-4xl font-bold text-sky-700 mb-2">Quiz Interativo</h1>
+        <h2 class="text-xl md:text-2xl font-semibold text-slate-600 mb-6">Juventude de Todos os Tempos</h2>
+    </div>
+
+    <div id="game-board" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4 w-full max-w-5xl mb-6">
+        <!-- As caixas do quiz serão geradas aqui pelo JavaScript -->
+    </div>
+
+    <button id="reset-button" class="bg-sky-600 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-sky-700 transition-colors duration-300">
+        Reiniciar Jogo
+    </button>
+
+    <!-- Modal para as perguntas -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none">
+        <div id="modal-content" class="bg-white rounded-xl shadow-2xl p-6 md:p-8 w-full max-w-2xl transform scale-95">
+            <p id="modal-intro" class="text-lg font-medium text-slate-600 mb-4 text-center italic"></p>
+            <h3 id="question-text" class="text-xl md:text-2xl font-bold mb-6 text-center"></h3>
+            <div id="answers-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- As opções de resposta serão geradas aqui -->
+            </div>
+            <div id="feedback-container" class="mt-6 text-center hidden">
+                <div class="flex items-center justify-center gap-2">
+                    <div id="feedback-icon-container"></div>
+                    <p id="feedback-text" class="text-2xl font-bold"></p>
+                </div>
+                 <div id="excerpt-container" class="mt-4 p-4 bg-slate-100 border-l-4 border-slate-400 text-left text-sm italic rounded-md hidden">
+                    <p id="excerpt-text"></p>
+                </div>
+                <div class="mt-6 flex justify-center gap-4">
+                    <button id="excerpt-button" class="bg-slate-500 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-slate-600 transition-colors duration-300">
+                        Conferir Trecho
+                    </button>
+                    <button id="close-modal-button" class="bg-sky-600 text-white font-bold py-2 px-8 rounded-lg shadow-md hover:bg-sky-700 transition-colors duration-300">
+                        Fechar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay para imagem de feedback -->
+    <div id="image-feedback-overlay" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none">
+        <img id="feedback-image" src="" alt="Feedback" class="max-h-[80vh] max-w-[80vw] rounded-lg shadow-2xl">
+    </div>
+
+    <!-- Efeitos Sonoros -->
+    <audio id="pass-turn-sound" src="https://www.myinstants.com/media/sounds/espiritaspaulo.mp3" preload="auto"></audio>
+    <audio id="correct-sound" src="https://www.myinstants.com/media/sounds/acertou-mizeravijk.mp3" preload="auto"></audio>
+    <audio id="error-sound" src="https://www.myinstants.com/media/sounds/faustao-errou.mp3" preload="auto"></audio>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const gameBoard = document.getElementById('game-board');
+            const resetButton = document.getElementById('reset-button');
+            
+            // Elementos do Modal
+            const modal = document.getElementById('modal');
+            const modalContent = document.getElementById('modal-content');
+            const modalIntro = document.getElementById('modal-intro');
+            const questionText = document.getElementById('question-text');
+            const answersContainer = document.getElementById('answers-container');
+            const feedbackContainer = document.getElementById('feedback-container');
+            const feedbackIconContainer = document.getElementById('feedback-icon-container');
+            const feedbackText = document.getElementById('feedback-text');
+            const excerptContainer = document.getElementById('excerpt-container');
+            const excerptText = document.getElementById('excerpt-text');
+            const excerptButton = document.getElementById('excerpt-button');
+            const closeModalButton = document.getElementById('close-modal-button');
+
+            // Elementos de Imagem de Feedback
+            const imageFeedbackOverlay = document.getElementById('image-feedback-overlay');
+            const feedbackImage = document.getElementById('feedback-image');
+
+            // Elementos de Audio
+            const passTurnSound = document.getElementById('pass-turn-sound');
+            const correctSound = document.getElementById('correct-sound');
+            const errorSound = document.getElementById('error-sound');
+
+            const TOTAL_CARDS = 18;
+
+            const successIcon = `<svg class="feedback-icon text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+            const errorIcon = `<svg class="feedback-icon text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+
+            const questions = [
+                { question: "Qual é o principal objetivo do capítulo 'Juventude de Todos os Tempos'?", options: ["Criticar a falta de participação dos jovens.", "Narrar a história das mocidades no Brasil.", "Lançar um olhar de gratidão e destacar as iniciativas juvenis na divulgação do Evangelho.", "Estabelecer regras para novos grupos de jovens."], answer: "Lançar um olhar de gratidão e destacar as iniciativas juvenis na divulgação do Evangelho.", trecho: "O presente capítulo tem por objeto lançar um olhar de gratidão àqueles corações, lidadores da causa do Bem, destacando, em breve histórico, suas iniciativas promissoras de organizar a participação da juventude no trabalho de divulgação, esclarecimento e caridade do Evangelho de Jesus. (p. 1)" },
+                { question: "Por que Sócrates e Platão são considerados precursores do pensamento cristão e espírita?", options: ["Porque escreveram livros lidos por Jesus.", "Porque proclamaram verdades como a unidade de Deus e a imortalidade da alma.", "Porque fundaram escolas filosóficas em Jerusalém.", "Porque foram os primeiros médiuns conhecidos."], answer: "Porque proclamaram verdades como a unidade de Deus e a imortalidade da alma.", trecho: "...por ter combatido os preconceitos religiosos [...] por proclamar como verdades fundamentais a unidade de Deus, a imortalidade da alma e a vida futura. (p. 17)" },
+                { question: "Sobre a idade de Jesus e seus apóstolos, o que o texto destaca?", options: ["Que todos já possuíam idade madura.", "Que Jesus tinha ~33 anos e a maioria dos apóstolos eram jovens.", "Que a idade de Jesus é desconhecida.", "Que apenas Jesus era jovem."], answer: "Que Jesus tinha ~33 anos e a maioria dos apóstolos eram jovens.", trecho: "...Jesus de Nazaré, ao ser crucificado, era um jovem que contaria 33 anos de idade [...] Os demais [...] seriam personalidades de vinte e tantos e trinta e poucos anos de idade, enquanto João Evangelista contaria 20 anos... (p. 18)" },
+                { question: "Qual jovem colaborador de Paulo de Tarso é descrito como seu 'filho espiritual'?", options: ["Lucas", "João Marcos", "Tito", "Timóteo"], answer: "Timóteo", trecho: "Timóteo é o filho espiritual do apóstolo. [...] Paulo o tomaria como companheiro de suas andanças e depois com um de seus principais emissários e cooperadores. (p. 19)" },
+                { question: "Quem foi Ermance Dufaux e qual sua principal contribuição para o Espiritismo?", options: ["Fundadora da primeira mocidade espírita da França.", "Jovem médium que colaborou com Kardec na 2ª edição de O Livro dos Espíritos.", "Esposa de Allan Kardec.", "Crítica de Allan Kardec."], answer: "Jovem médium que colaborou com Kardec na 2ª edição de O Livro dos Espíritos.", trecho: "DUFAUX [Ermance Dufaux] colaborou, como médium, com Kardec, na elaboração da segunda edição de O livro dos espíritos, de 1860... (p. 22)" },
+                { question: "Em quais princípios se baseava o idealismo juvenil de Camille Flammarion?", options: ["No materialismo científico e agnosticismo.", "Na imortalidade do Espírito, pluralidade dos mundos e das existências.", "Nos dogmas religiosos tradicionais.", "Em uma moral sensualista e materialista."], answer: "Na imortalidade do Espírito, pluralidade dos mundos e das existências.", trecho: "Os princípios morais do idealismo juvenil de Flammarion estão baseados na imortalidade do Espírito e na pluralidade de mundos habitados e na pluralidade de existências de alma. (p. 24)" },
+                { question: "Quando e onde foi iniciado o primeiro movimento de jovens espíritas no mundo?", options: ["Paris, França, em 1857, por Allan Kardec.", "Pedro Leopoldo, Brasil, em 1922, por Luiz Gomes da Silva.", "Nova York, EUA, em 1863, por Andrew Jackson Davis.", "Barcelona, Espanha, em 1861, por Camille Flammarion."], answer: "Nova York, EUA, em 1863, por Andrew Jackson Davis.", trecho: "...o movimento de jovens espíritas foi iniciado em New York, no dia 25 de janeiro de 1863. [...] Com elas Andrew Jackson Davis iniciou o movimento de jovens espíritas no mundo. (p. 25)" },
+                { question: "Como surgiu a CONCAFRAS e qual foi o papel da mocidade?", options: ["Foi uma decisão de um congresso de veteranos.", "A mocidade de Ribeirão Preto se prontificou a organizar o 1º evento após a ideia de um encontro no carnaval.", "Foi uma imposição da Federação Espírita Brasileira.", "Foi uma ideia de Elias Barbosa em uma palestra."], answer: "A mocidade de Ribeirão Preto se prontificou a organizar o 1º evento após a ideia de um encontro no carnaval.", trecho: "Aí eu propus, nós temos o Carnaval [...] vamos fazer em Ribeirão. [...] Foi a Mocidade, veja bem, ele [José Simon Camelo] fazia parte da Mocidade, entende. E a mocidade resolveu todo o problema. (p. 32-33)" },
+                { question: "Qual lição Elias Barbosa aprendeu em sua primeira CONCAFRAS sobre ser ofendido durante a Campanha?", options: ["Que deveria revidar a ofensa verbalmente.", "Que deveria evitar casas onde pudesse ser ofendido.", "Que deveria pedir a Deus pela casa e agradecer pela oportunidade de praticar a humildade.", "Que deveria registrar a ofensa para a organização."], answer: "Que deveria pedir a Deus pela casa e agradecer pela oportunidade de praticar a humildade.", trecho: "...alertou que se fôssemos ofendidos em algum lar deveríamos pedir a Deus por aquela casa e agradecer a oportunidade de praticar a humildade. (p. 34)" },
+                { question: "Qual a mensagem central de Wilson Ferreira Melo aos jovens espíritas?", options: ["Priorizar eventos sociais e gincanas.", "Estudar com dedicação as obras de Kardec e retomar a seriedade dos grupos.", "Focar apenas na caridade, deixando o estudo em segundo plano.", "Evitar discussões filosóficas e focar na mediunidade."], answer: "Estudar com dedicação as obras de Kardec e retomar a seriedade dos grupos.", trecho: "Será preciso estudar com dedicação as obras de Allan Kardec para atuar no movimento jovem espírita. É preciso retomar a seriedade dos grupos de Mocidade... (p. 36)" }
+            ];
+
+            const funIntros = {
+                answer_self: [
+                    "Assim como Ermance Dufaux psicografou aos 12 anos, mostre seu conhecimento!",
+                    "Com a coragem de quem organizou a primeira CONCAFRAS, encare este desafio!",
+                    "Com a dedicação de Timóteo, o 'filho espiritual' de Paulo, responda a esta questão:",
+                    "Camille Flammarion via a juventude como renovadora. Renove nossos conhecimentos e responda:",
+                    "Com a fé de Joana d'Arc, ilumine-nos com sua resposta:",
+                    "Jesus aos 33 anos liderava uma revolução de amor. Mostre sua liderança e responda:"
+                ],
+                answer_other: [
+                    "Como Paulo de Tarso confiava em seus jovens colaboradores, escolha um colega para esta tarefa!",
+                    "Andrew Jackson Davis iniciou um movimento. Inicie uma nova rodada e escolha alguém para responder:",
+                    "Sócrates não escreveu, seus discípulos transmitiram. Transmita essa pergunta para alguém:",
+                    "Como um bom emissário, passe esta mensagem adiante. Escolha um colega para a tarefa:",
+                    "Barnabé e Paulo delegaram tarefas a João Marcos. Delegue esta pergunta a um amigo:",
+                    "A mediunidade uniu as irmãs Baudin e Ermance Dufaux. Una-se a um colega para resolver esta questão:"
+                ]
+            };
+
+            let cardTypes = [];
+            let shuffledQuestions = [];
+
+            const shuffleArray = (array) => array.sort(() => Math.random() - 0.5);
+
+            function initGame() {
+                gameBoard.innerHTML = '';
+                
+                let tempCardTypes = [];
+                // 7 'answer_self', 7 'answer_other', 4 'pass_turn' -> Total 18
+                for(let i = 0; i < 7; i++) tempCardTypes.push('answer_self');
+                for(let i = 0; i < 7; i++) tempCardTypes.push('answer_other');
+                for(let i = 0; i < 4; i++) tempCardTypes.push('pass_turn');
+                
+                cardTypes = shuffleArray(tempCardTypes);
+                // Replicar perguntas para garantir que sempre haverá uma disponível
+                shuffledQuestions = shuffleArray([...questions, ...questions]);
+
+                for (let i = 0; i < TOTAL_CARDS; i++) {
+                    const card = document.createElement('div');
+                    card.classList.add('card', 'h-28', 'cursor-pointer');
+                    card.dataset.index = i;
+
+                    card.innerHTML = `
+                        <div class="card-inner">
+                            <div class="card-front bg-sky-500 text-white text-4xl font-bold shadow-lg">
+                                ${i + 1}
+                            </div>
+                            <div class="card-back bg-white p-2 text-xl font-bold shadow-inner">
+                            </div>
+                        </div>
+                    `;
+                    gameBoard.appendChild(card);
+                    card.addEventListener('click', handleCardClick);
+                }
+            }
+
+            function handleCardClick(event) {
+                const card = event.currentTarget;
+                if (card.classList.contains('flipped')) return;
+
+                card.classList.add('flipped');
+                const cardIndex = parseInt(card.dataset.index);
+                const cardType = cardTypes[cardIndex];
+                const cardBack = card.querySelector('.card-back');
+
+                setTimeout(() => {
+                    switch (cardType) {
+                        case 'pass_turn':
+                            cardBack.innerHTML = `<span class="text-rose-600">Passe a vez</span>`;
+                            passTurnSound.play();
+                            const tempText = document.createElement('p');
+                            tempText.textContent = "Siga com Paulo e a verdade";
+                            tempText.className = "text-sm text-slate-500 font-normal mt-1";
+                            cardBack.appendChild(tempText);
+                            break;
+                        case 'answer_self':
+                            cardBack.innerHTML = `<span class="text-indigo-600">Responda</span>`;
+                            setTimeout(() => {
+                                const introSelf = shuffleArray(funIntros.answer_self)[0];
+                                const questionSelf = shuffledQuestions.pop();
+                                if (questionSelf) showQuestionModal(questionSelf, introSelf);
+                            }, 500);
+                            break;
+                        case 'answer_other':
+                            cardBack.innerHTML = `<span class="text-teal-600">Escolha alguém</span>`;
+                            setTimeout(() => {
+                                const introOther = shuffleArray(funIntros.answer_other)[0];
+                                const questionOther = shuffledQuestions.pop();
+                                if (questionOther) showQuestionModal(questionOther, introOther);
+                            }, 500);
+                            break;
+                    }
+                }, 300);
+            }
+
+            function showQuestionModal(questionObj, intro) {
+                feedbackContainer.classList.add('hidden');
+                excerptContainer.classList.add('hidden');
+                answersContainer.classList.remove('hidden');
+                excerptButton.textContent = "Conferir Trecho";
+
+                modalIntro.textContent = `"${intro}"`;
+                questionText.textContent = questionObj.question;
+                answersContainer.innerHTML = '';
+                
+                const options = shuffleArray([...questionObj.options]);
+                options.forEach(option => {
+                    const button = document.createElement('button');
+                    button.textContent = option;
+                    button.classList.add('w-full', 'p-3', 'bg-slate-200', 'rounded-lg', 'text-left', 'hover:bg-sky-200', 'transition-colors', 'duration-200');
+                    button.addEventListener('click', () => checkAnswer(option, questionObj.answer, questionObj.trecho));
+                    answersContainer.appendChild(button);
+                });
+
+                modal.classList.remove('opacity-0', 'pointer-events-none');
+                modalContent.classList.remove('scale-95');
+            }
+
+            function showFeedbackImage(isCorrect) {
+                const correctUrl = 'https://w7.pngwing.com/pngs/903/635/png-transparent-jesus-christ-jesus-dogma-buddy-christ-thumb-signal-jesus-christ-religion-film-know-your-meme.png';
+                const incorrectUrl = 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgQxsp4XzvUyKbWuwCvqfV2mmS-Sa-g0izuuCBcnfEpxShi3Ie6oa6yE1kPw9NdAcUnXtpr4S0NOi3EUgAwwDfRhc8vkChhS-Y5PdX8JxJGpgqGj6NH0M8jyiJh6VtoZgi4PMY1/w1200-h630-p-k-no-nu/jesus.jpg';
+                feedbackImage.src = isCorrect ? correctUrl : incorrectUrl;
+                feedbackImage.onerror = () => { feedbackImage.src = `https://placehold.co/600x400/000000/FFFFFF?text=${isCorrect ? 'Acertou!' : 'Errou!'}`; };
+                imageFeedbackOverlay.classList.remove('opacity-0', 'pointer-events-none');
+                setTimeout(() => {
+                    imageFeedbackOverlay.classList.add('opacity-0', 'pointer-events-none');
+                }, 3000);
+            }
+
+            function checkAnswer(selectedOption, correctAnswer, trecho) {
+                answersContainer.classList.add('hidden');
+                feedbackContainer.classList.remove('hidden');
+                excerptText.textContent = trecho;
+
+                if (selectedOption === correctAnswer) {
+                    feedbackText.textContent = 'Acertou!';
+                    feedbackText.className = 'text-2xl font-bold text-emerald-600';
+                    feedbackIconContainer.innerHTML = successIcon;
+                    correctSound.play();
+                    showFeedbackImage(true);
+                } else {
+                    feedbackText.textContent = 'Errou!';
+                    feedbackText.className = 'text-2xl font-bold text-rose-600';
+                    feedbackIconContainer.innerHTML = errorIcon;
+                    errorSound.play();
+                    showFeedbackImage(false);
+                }
+            }
+            
+            excerptButton.addEventListener('click', () => {
+                const isHidden = excerptContainer.classList.toggle('hidden');
+                excerptButton.textContent = isHidden ? "Conferir Trecho" : "Ocultar Trecho";
+            });
+
+            closeModalButton.addEventListener('click', () => {
+                modal.classList.add('opacity-0', 'pointer-events-none');
+                modalContent.classList.add('scale-95');
+            });
+            
+            resetButton.addEventListener('click', initGame);
+
+            initGame();
+        });
+    </script>
+
+</body>
+</html>
